@@ -89,6 +89,10 @@ public class ResultMapper {
     public TreeMultimap docsByRowKey() {
         return collector.docsByRowKey();
     }
+    
+    public List<IndexEntry> docs() {
+        return collector.docs();
+    }
 
     public final Map<CellName, ColumnFamily> getRows(ColumnFamily columnFamily) {
         Map<CellName, ColumnFamily> columnFamilies = new LinkedHashMap<>();
