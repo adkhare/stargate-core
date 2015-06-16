@@ -51,8 +51,28 @@ public class RowFetcher {
 
     public List<Row> fetchRows() throws IOException {
         List<Row> rows = new ArrayList<>();
+        List<IndexEntryCollector.IndexEntry> docsSorted = resultMapper.docs();
+        List<IndexEntryCollector.IndexEntry> sliceList;
+        for (IndexEntryCollector.IndexEntry input : docsSorted) {
+            CellName cellName = input.clusteringKey;
+            DecoratedKey dk = input.decoratedKey;
+            sliceList = new ArrayList<IndexEntryCollector.IndexEntry>();
+            sliceList.add(input);
+            Map<CellName, ColumnFamily> fullSlice = resultMapper.fetchRangeSlice(sliceList, dk);
+            if (!resultMapper.filter.columnFilter(dk.getKey()).maySelectPrefix(table.getComparator(), cellName.start())) {
+                continue;
+            }
+            ColumnFamily data = fullSlice.get(cellName);
+            if (data == null || resultMapper.searchSupport.deleteIfNotLatest(dk, data.maxTimestamp(), input.pkName, data))
+                continue;
+            float score = input.score;
+            ColumnFamily cleanColumnFamily = resultMapper.showScore ? scored(score, data) : data;
+            rows.add(new Row(dk, cleanColumnFamily));
+            columnsCount++;
+            if (columnsCount > limit) break;
+        }
+        /* commented to fix the sorting issue
         TreeMultimap<DecoratedKey, IndexEntryCollector.IndexEntry> docs = resultMapper.docsByRowKey();
-
         for (DecoratedKey dk : docs.keySet()) {
             NavigableSet<IndexEntryCollector.IndexEntry> entries = docs.get(dk);
 
@@ -79,8 +99,7 @@ public class RowFetcher {
                 if (columnsCount > limit) break;
             }
             if (columnsCount > limit) break;
-        }
-
+        }*/
         return rows;
     }
 
